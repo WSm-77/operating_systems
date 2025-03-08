@@ -12,4 +12,8 @@ countdown.o: countdown.c
 clean:
 	rm *o countdown
 
-.PHONY: clean all
+test: countdown
+	chmod +x ./countdown
+	./countdown
+
+.PHONY: clean all test
