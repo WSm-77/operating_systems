@@ -36,6 +36,13 @@ $(LIB_BUILD_DIR)/$(OBJ_SUBDIR)/%.o: $(SRC_DIR)/%.c
 
 	gcc -c -I$(INCLUDE_DIR) $< -o $@
 
+$(APP_BUILD_DIR)/main.o: $(MAIN_DIR)/main.c
+	@if ! [ -d $(APP_BUILD_DIR) ]; then \
+		mkdir -p  $(APP_BUILD_DIR); \
+	fi
+
+	gcc -c -I$(INCLUDE_DIR) $< -o $@
+
 libcollatz_static: $(LIB_BUILD_DIR)/$(OBJ_SUBDIR)/collatz.o $(LIB_BUILD_DIR)/$(OBJ_SUBDIR)/test_collatz.o
 	@if ! [ -d $(LIB_BUILD_DIR)/$(LIB_SUBDIR) ]; then \
 		mkdir -p $(LIB_BUILD_DIR)/$(LIB_SUBDIR); \
@@ -43,13 +50,9 @@ libcollatz_static: $(LIB_BUILD_DIR)/$(OBJ_SUBDIR)/collatz.o $(LIB_BUILD_DIR)/$(O
 
 	ar rsc $(LIB_BUILD_DIR)/$(LIB_SUBDIR)/libcollatz_static.a $^
 
-static_app: libcollatz_static
-	@if ! [ -d $(APP_BUILD_DIR) ]; then \
-		mkdir -p  $(APP_BUILD_DIR); \
-	fi
+static_app: libcollatz_static $(APP_BUILD_DIR)/main.o
+	@# first option
+	@# gcc -I$(INCLUDE_DIR) $(APP_BUILD_DIR)/main.o $(LIB_BUILD_DIR)/$(LIB_SUBDIR)/libcollatz_static.a -o $(APP_BUILD_DIR)/main
 
-	# first option
-	# gcc -I$(INCLUDE_DIR) $(MAIN_DIR)/main.c $(LIB_BUILD_DIR)/$(LIB_SUBDIR)/libcollatz_static.a -o $(APP_BUILD_DIR)/main
-
-	# second option
-	gcc -I$(INCLUDE_DIR) $(MAIN_DIR)/main.c -L$(LIB_BUILD_DIR)/$(LIB_SUBDIR) -lcollatz_static -o $(APP_BUILD_DIR)/main
+	@# second option
+	gcc -I$(INCLUDE_DIR) $(APP_BUILD_DIR)/main.o -L$(LIB_BUILD_DIR)/$(LIB_SUBDIR) -lcollatz_static -o $(APP_BUILD_DIR)/main
