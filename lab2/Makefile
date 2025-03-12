@@ -48,4 +48,8 @@ static_app: libcollatz_static
 		mkdir -p  $(APP_BUILD_DIR); \
 	fi
 
-	gcc -I$(INCLUDE_DIR) $(MAIN_DIR)/main.c $(LIB_BUILD_DIR)/$(LIB_SUBDIR)/libcollatz_static.a -o $(APP_BUILD_DIR)/main
+	# first option
+	# gcc -I$(INCLUDE_DIR) $(MAIN_DIR)/main.c $(LIB_BUILD_DIR)/$(LIB_SUBDIR)/libcollatz_static.a -o $(APP_BUILD_DIR)/main
+
+	# second option
+	gcc -I$(INCLUDE_DIR) $(MAIN_DIR)/main.c -L$(LIB_BUILD_DIR)/$(LIB_SUBDIR) -lcollatz_static -o $(APP_BUILD_DIR)/main
