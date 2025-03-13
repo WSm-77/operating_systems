@@ -96,14 +96,11 @@ libcollatz_shared: $(OBJS_SHARED)
 	echo $(SRCS);
 	echo $(OBJS_SHARED);
 
-	$(CC) -shared -o $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1.0 -Wl,-soname,libcollatz_shared.so.1 $^
+	# $(CC) -shared -o $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1.0 -Wl,-soname,libcollatz_shared.so.1 $^
+	$(CC) -shared -o $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so $^
 
-	ln -s $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1.0 $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1
-	ln -s $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1 $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so
+	# ln -s $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1.0 $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1
+	# ln -s $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1 $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so
 
 shared_app: libcollatz_shared $(APP_BUILD_DIR)/main_shared.o
-	@# first option
-	@# $(CC) -I$(INCLUDE_DIR) $(APP_BUILD_DIR)/main_shared.o $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.a -o $(APP_BUILD_DIR)/main_shared
-
-	@# second option
-	$(CC) -I$(INCLUDE_DIR) $(APP_BUILD_DIR)/main_shared.o -L$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR) -lcollatz_shared -o $(APP_BUILD_DIR)/main_shared
+	$(CC) -I$(INCLUDE_DIR) $(APP_BUILD_DIR)/main_shared.o -L$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR) -lcollatz_shared -o $(APP_BUILD_DIR)/main_shared -Wl,-rpath=$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)
