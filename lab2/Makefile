@@ -1,3 +1,7 @@
+.ONESHELL:
+SHELL = /bin/bash
+.SHELLFLAGS = -x -c
+
 # sources
 SRCS=$(wildcard $(SRC_DIR)/*.c)
 
@@ -21,6 +25,8 @@ APP_BUILD_DIR=$(APP_DIR)/build
 CC=gcc
 C_STATIC_FLAGS=-c -I$(INCLUDE_DIR)
 C_SHARED_FLAGS=-c -I$(INCLUDE_DIR) -fPIC
+
+all: static_app shared_app
 
 clean:
 	@flag=0; \
@@ -93,14 +99,15 @@ libcollatz_shared: $(OBJS_SHARED)
 		mkdir -p $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR); \
 	fi
 
-	echo $(SRCS);
-	echo $(OBJS_SHARED);
+	@path_to_library=$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR);
+	@full_path_to_library=$$(realpath $$path_to_library);
 
-	# $(CC) -shared -o $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1.0 -Wl,-soname,libcollatz_shared.so.1 $^
-	$(CC) -shared -o $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so $^
+	$(CC) -shared -o $$path_to_library/libcollatz_shared.so.1.0 -Wl,-soname,libcollatz_shared.so.1 $^
 
-	# ln -s $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1.0 $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1
-	# ln -s $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so.1 $(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so
+	ln -sf $$full_path_to_library/libcollatz_shared.so.1.0 $$full_path_to_library/libcollatz_shared.so.1
+	ln -sf $$full_path_to_library/libcollatz_shared.so.1 $$full_path_to_library/libcollatz_shared.so
 
 shared_app: libcollatz_shared $(APP_BUILD_DIR)/main_shared.o
 	$(CC) -I$(INCLUDE_DIR) $(APP_BUILD_DIR)/main_shared.o -L$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR) -lcollatz_shared -o $(APP_BUILD_DIR)/main_shared -Wl,-rpath=$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)
+
+.PHONY: clean all static_app shared_app
