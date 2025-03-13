@@ -14,6 +14,7 @@ LIB_SUBDIR=lib
 STATIC_LIB_SUBDIR=static
 SHARED_LIB_SUBDIR=shared
 
+OBJS_STATIC=$(patsubst $(SRC_DIR)/%.c,$(LIB_BUILD_DIR)/$(STATIC_LIB_SUBDIR)/$(OBJ_SUBDIR)/%.o,$(SRCS))
 OBJS_SHARED=$(patsubst $(SRC_DIR)/%.c,$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(OBJ_SUBDIR)/%.o,$(SRCS))
 
 # app
@@ -27,7 +28,17 @@ C_STATIC_FLAGS=-c -I$(INCLUDE_DIR)
 C_SHARED_FLAGS=-c -I$(INCLUDE_DIR) -fPIC
 C_DYNAMIC_FLAGS=-c -DDYNAMIC_LIB_PATH="\"./$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so\""
 
-all: static_app shared_app
+all: static_app shared_app dynamic_app
+
+test: all
+	echo -e "\n\n#### run main_static ####\n\n";
+	./$(APP_BUILD_DIR)/main_static;
+
+	echo -e "\n\n#### run main_shared ####\n\n";
+	./$(APP_BUILD_DIR)/main_shared;
+
+	echo -e "\n\n#### run main_dynamic ####\n\n";
+	./$(APP_BUILD_DIR)/main_dynamic;
 
 clean:
 	@flag=0; \
@@ -63,7 +74,7 @@ $(APP_BUILD_DIR)/main_static.o: $(MAIN_DIR)/main.c
 
 	$(CC) $(C_STATIC_FLAGS) $< -o $@
 
-libcollatz_static: $(LIB_BUILD_DIR)/$(STATIC_LIB_SUBDIR)/$(OBJ_SUBDIR)/collatz.o $(LIB_BUILD_DIR)/$(STATIC_LIB_SUBDIR)/$(OBJ_SUBDIR)/test_collatz.o
+libcollatz_static: $(OBJS_STATIC)
 	@if ! [ -d $(LIB_BUILD_DIR)/$(STATIC_LIB_SUBDIR)/$(LIB_SUBDIR) ]; then \
 		mkdir -p $(LIB_BUILD_DIR)/$(STATIC_LIB_SUBDIR)/$(LIB_SUBDIR); \
 	fi
@@ -125,4 +136,4 @@ $(APP_BUILD_DIR)/main_dynamic.o: $(MAIN_DIR)/main.c libcollatz_shared
 dynamic_app: $(APP_BUILD_DIR)/main_dynamic.o
 	$(CC) $< -o $(APP_BUILD_DIR)/main_dynamic
 
-.PHONY: clean all static_app shared_app
+.PHONY: clean all test static_app shared_app dynamic_app
