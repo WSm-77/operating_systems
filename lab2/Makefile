@@ -25,6 +25,7 @@ APP_BUILD_DIR=$(APP_DIR)/build
 CC=gcc
 C_STATIC_FLAGS=-c -I$(INCLUDE_DIR)
 C_SHARED_FLAGS=-c -I$(INCLUDE_DIR) -fPIC
+C_DYNAMIC_FLAGS=-c -DDYNAMIC_LIB_PATH="\"./$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)/libcollatz_shared.so\""
 
 all: static_app shared_app
 
@@ -109,5 +110,19 @@ libcollatz_shared: $(OBJS_SHARED)
 
 shared_app: libcollatz_shared $(APP_BUILD_DIR)/main_shared.o
 	$(CC) -I$(INCLUDE_DIR) $(APP_BUILD_DIR)/main_shared.o -L$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR) -lcollatz_shared -o $(APP_BUILD_DIR)/main_shared -Wl,-rpath=$(LIB_BUILD_DIR)/$(SHARED_LIB_SUBDIR)/$(LIB_SUBDIR)
+
+###################
+# dynamic library #
+###################
+
+$(APP_BUILD_DIR)/main_dynamic.o: $(MAIN_DIR)/main.c libcollatz_shared
+	@if ! [ -d $(APP_BUILD_DIR) ]; then \
+		mkdir -p  $(APP_BUILD_DIR); \
+	fi
+
+	$(CC) $(C_DYNAMIC_FLAGS) $< -o $@
+
+dynamic_app: $(APP_BUILD_DIR)/main_dynamic.o
+	$(CC) $< -o $(APP_BUILD_DIR)/main_dynamic
 
 .PHONY: clean all static_app shared_app
