@@ -85,6 +85,12 @@ bool flipFile(FILE* srcFile, FILE* targetFile) {
     return true;
 }
 
+bool isLastCharSlash(char* str) {
+    size_t strLen = strlen(str);
+
+    return str[strLen - 1] == '/';
+}
+
 int main(int argc, char** argv) {
     if (REQUIRED_ARGS_CNT != argc) {
         printf("Wrong arguments count: %d\n", argc);
@@ -124,20 +130,23 @@ int main(int argc, char** argv) {
     char targetFullPath[BUFF_SIZE];
 
     while (NULL != (currFilePtr = readdir(srcDir))) {
-        printf("current file: %s\n", currFilePtr->d_name);
-
         if ((strcmp(currFilePtr->d_name, ".") == 0) || (strcmp(currFilePtr->d_name, "..") == 0))
             continue;
 
-        snprintf(srcFullPath, sizeof(srcFullPath), "%s/%s", sourceDirPath, currFilePtr->d_name);
-        printf("full path: %s\n", srcFullPath);
+        if (isLastCharSlash(sourceDirPath)) {
+            snprintf(srcFullPath, sizeof(srcFullPath), "%s%s", sourceDirPath, currFilePtr->d_name);
+        } else {
+            snprintf(srcFullPath, sizeof(srcFullPath), "%s/%s", sourceDirPath, currFilePtr->d_name);
+        }
 
         if (!isTextFile(srcFullPath))
             continue;
 
-        printf("text file: %s\n", srcFullPath);
-
-        snprintf(targetFullPath, sizeof(targetFullPath), "%s/flipped_%s", targetDirPath, currFilePtr->d_name);
+        if (isLastCharSlash(targetDirPath)) {
+            snprintf(targetFullPath, sizeof(targetFullPath), "%sflipped_%s", targetDirPath, currFilePtr->d_name);
+        } else {
+            snprintf(targetFullPath, sizeof(targetFullPath), "%s/flipped_%s", targetDirPath, currFilePtr->d_name);
+        }
         FILE* flippedFile = fopen(targetFullPath, "w");
         FILE* srcFile = fopen(srcFullPath, "r");
 
