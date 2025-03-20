@@ -1,4 +1,7 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <string.h>
@@ -50,13 +53,36 @@ bool isTextFile(const char* filePath) {
             result = false;
             break;
         }
-
-        // putc(ch, stdout);
     }
 
     fclose(file);
 
     return result;
+}
+
+bool flipFile(FILE* srcFile, FILE* targetFile) {
+    if (!srcFile || !targetFile) {
+        return false;
+    }
+    ssize_t lineSize;
+    size_t buffSize = 0;
+    char* line;
+
+
+    while ((lineSize = getline(&line, &buffSize, srcFile)) != -1) {
+        ssize_t iterCnt = lineSize / 2 - 1;
+
+        for (ssize_t i = 0; i < iterCnt; i++) {
+            char tmp = line[i];
+            ssize_t j = lineSize - 2 - i;
+            line[i] = line[j];
+            line[j] = tmp;
+        }
+
+        fprintf(targetFile, "%s", line);
+    }
+
+    return true;
 }
 
 int main(int argc, char** argv) {
@@ -70,9 +96,6 @@ int main(int argc, char** argv) {
     char* sourceDirPath = argv[SRC_DIR_IDX];
     char* targetDirPath = argv[TARGET_DIR_IDX];
 
-    // printf("%s\n", sourceDirPath);
-    // printf("%s\n", targetDirPath);
-
     DIR* srcDir = opendir(sourceDirPath);
 
     if (!srcDir) {
@@ -84,13 +107,21 @@ int main(int argc, char** argv) {
     DIR* targetDir = opendir(targetDirPath);
 
     if (!targetDir) {
-        printf("%s directory can't be opened!!!\n", targetDirPath);
+        printf("%s directory does not exist!\n", targetDirPath);
+        printf("creating %s directory...\n", targetDirPath);
 
-        return 2;
+        if (mkdir(targetDirPath, 0777) != 0) {
+            printf("could not create %s directory!!!", targetDirPath);
+
+            return 3;
+        }
     }
 
+    closedir(targetDir);
+
     struct dirent* currFilePtr;
-    char fullPath[BUFF_SIZE];
+    char srcFullPath[BUFF_SIZE];
+    char targetFullPath[BUFF_SIZE];
 
     while (NULL != (currFilePtr = readdir(srcDir))) {
         printf("current file: %s\n", currFilePtr->d_name);
@@ -98,18 +129,26 @@ int main(int argc, char** argv) {
         if ((strcmp(currFilePtr->d_name, ".") == 0) || (strcmp(currFilePtr->d_name, "..") == 0))
             continue;
 
-        snprintf(fullPath, sizeof(fullPath), "%s/%s", sourceDirPath, currFilePtr->d_name);
-        printf("full path: %s\n", fullPath);
+        snprintf(srcFullPath, sizeof(srcFullPath), "%s/%s", sourceDirPath, currFilePtr->d_name);
+        printf("full path: %s\n", srcFullPath);
 
-        if (!isTextFile(fullPath))
+        if (!isTextFile(srcFullPath))
             continue;
 
-        printf("text file: %s\n", fullPath);
+        printf("text file: %s\n", srcFullPath);
+
+        snprintf(targetFullPath, sizeof(targetFullPath), "%s/flipped_%s", targetDirPath, currFilePtr->d_name);
+        FILE* flippedFile = fopen(targetFullPath, "w");
+        FILE* srcFile = fopen(srcFullPath, "r");
+
+        if(!flipFile(srcFile, flippedFile)) {
+            printf("couldn't flip %s file\n", srcFullPath);
+        }
+
+        fclose(flippedFile);
     }
 
-
     closedir(srcDir);
-    closedir(targetDir);
 
     return 0;
 }
