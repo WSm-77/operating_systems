@@ -9,7 +9,7 @@
 typedef enum {
     PRINT_CATCHED_SWITCH_MODE_CNT = 1,
     ACTIVATE_COUNTER = 2,
-    IGNOER_CTRL_C = 3,
+    IGNORE_CTRL_C = 3,
     PRINT_CTRL_C = 4,
     EXIT_CATCHER = 5,
 } CatcherMode;
@@ -40,6 +40,7 @@ void print_ctrl_c_pressed() {
 int main(int argc, char** argv) {
     printf("Catcher PID = %d\n", getpid());
 
+    void (*sigintHandler)(void) = NULL;
     unsigned long switchModeCnt = 0;
     sigset_t handableSignals;
     siginfo_t signalInfo;
@@ -60,12 +61,21 @@ int main(int argc, char** argv) {
         printf("Waiting for signal SIGUSR1...\n");
 
         if (-1 == sigwaitinfo(&handableSignals, &signalInfo)) {
-            perror("Error while waiting for signal!!!\n");
+            printf("recived signal: %d\n", signalInfo.si_signo);
+            printf("recived signal code: %d\n", signalInfo.si_code);
 
-            return 1;
+            if (signalInfo.si_signo != SIGINT) {
+                perror("Error while waiting for signal!!!\n");
+
+                return 1;
+            }
         }
 
         if (signalInfo.si_signo == SIGINT) {
+            if (NULL != sigintHandler) {
+                sigintHandler();
+            }
+
             continue;
         }
 
@@ -95,17 +105,29 @@ int main(int argc, char** argv) {
 
                 break;
 
-            case IGNOER_CTRL_C:
+            case IGNORE_CTRL_C:
                 sigactionHandler.sa_handler = SIG_IGN;
+                if (sigismember(&handableSignals, SIGINT)) {
+                    sigdelset(&handableSignals, SIGINT);
+                    if (-1 == sigprocmask(SIG_BLOCK, &handableSignals, NULL)) {
+                        perror("Error wihle processing mask!!!\n");
+
+                        return 1;
+                    }
+                }
                 sigaction(SIGINT, &sigactionHandler, NULL);
-                // sigaddset(&handableSignals, SIGINT);
+                sigintHandler = print_ctrl_c_pressed;
 
                 break;
 
             case PRINT_CTRL_C:
                 sigactionHandler.sa_handler = print_ctrl_c_pressed;
-                sigaction(SIGINT, &sigactionHandler, NULL);
-                // sigaddset(&handableSignals, SIGINT);
+                sigaddset(&handableSignals, SIGINT);
+                if (-1 == sigprocmask(SIG_BLOCK, &handableSignals, NULL)) {
+                    perror("Error wihle processing mask!!!\n");
+
+                    return 1;
+                }
 
                 break;
 

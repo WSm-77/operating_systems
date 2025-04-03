@@ -1,7 +1,7 @@
 CC=gcc
 CFLGAS=-c -g
 
-all: define_trap_action
+all: define_trap_action catcher sender
 
 %.o: %.c
 	$(CC) $(CFLGAS) $^ -o $@
