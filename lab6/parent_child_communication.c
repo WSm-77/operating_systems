@@ -17,7 +17,7 @@ double fun(double x) {
     return 4 / (x * x + 1);
 }
 
-bool convertToDobule(char* valueStr, double* value) {
+bool convertToDouble(char* valueStr, double* value) {
     char* endptr = NULL;
 
     *value = strtod(valueStr, &endptr);
@@ -89,19 +89,14 @@ double calculate_integral(double lowerLimitOfIntegration, double upperLimitOfInt
     return integral;
 }
 
-double delegate_calculations(double lowerLimitOfIntegration, double upperLimitOfIntegration, double dx) {
-    int fdChildToParent[2];
+void delegate_calculations(double lowerLimitOfIntegration, double upperLimitOfIntegration, double dx, int* fdChildToParent) {
     int* parentReadDescriptor = &fdChildToParent[0];
     int* childWriteDescriptor = &fdChildToParent[1];
-
-    pipe(fdChildToParent);
 
     pid_t pid = fork();
 
     char buffor[BUFFOR_SIZE];
     buffor[0] = '\0';
-
-    double integral = 0.0;
 
     if (0 == pid) {
 
@@ -121,30 +116,18 @@ double delegate_calculations(double lowerLimitOfIntegration, double upperLimitOf
 
         // kill child process
         exit(0);
-    } else {
+    }
+    else {
 
         // parent
 #ifdef DEBUG
         printf("Parent process\n");
 #endif
-        waitpid(pid, NULL, 0);
-
 
         close(*childWriteDescriptor);
-
-        read(*parentReadDescriptor, &buffor, BUFFOR_SIZE);
-
-#ifdef DEBUG
-        printf("Parent buff content: %s\n", buffor);
-#endif
-        if ( ! convertToDobule(buffor, &integral)) {
-            integral = 0.0;
-        }
-
-        close(*parentReadDescriptor);
     }
 
-    return integral;
+    // return integral;
 }
 
 int main(int argc, char** argv) {
@@ -180,6 +163,14 @@ int main(int argc, char** argv) {
 
         clock_gettime(CLOCK_MONOTONIC, &startTime);
 
+        // prepare pipes
+        int **fileDescriptorArr = malloc(processesCount * sizeof(int*));
+        for (int i = 0; i < processesCount; i++) {
+            fileDescriptorArr[i] = malloc(2 * sizeof(int));
+            pipe(fileDescriptorArr[i]);
+        }
+
+        // create processes
         for (int process = 0; process < processesCount; process++) {
             double currProcessLowerLimit = lowerLimitOfIntegration + process * intervalSizePerProcess;
             double currProcessUpperLimit = currProcessLowerLimit + intervalSizePerProcess;
@@ -188,7 +179,27 @@ int main(int argc, char** argv) {
             printf("\nProcess %d: lower limit: %f, upper limit: %f\n\n", process, currProcessLowerLimit, currProcessUpperLimit);
 #endif
 
-            integralVal += delegate_calculations(currProcessLowerLimit, currProcessUpperLimit, intervalSize);
+            delegate_calculations(currProcessLowerLimit, currProcessUpperLimit, intervalSize, fileDescriptorArr[process]);
+        }
+
+        // wait for all child processes to finish
+        wait(NULL);
+
+        // read results from pipes
+        for (int i = 0; i < processesCount; i++) {
+            // Close the write end of the pipe
+            close(fileDescriptorArr[i][1]);
+
+            // Read the result from the read end of the pipe
+            char buffor[BUFFOR_SIZE];
+            read(fileDescriptorArr[i][0], buffor, BUFFOR_SIZE);
+
+            double integralPart;
+            if (convertToDouble(buffor, &integralPart)) {
+                integralVal += integralPart;
+            }
+
+            close(fileDescriptorArr[i][0]);
         }
 
         clock_gettime(CLOCK_MONOTONIC, &endTime);
@@ -199,6 +210,13 @@ int main(int argc, char** argv) {
         printf("Execution time: %f seconds\n", executionTime);
 
         printf("integral value: %f\n", integralVal);
+
+        // Free the file descriptors
+        for (int i = 0; i < processesCount; i++) {
+            free(fileDescriptorArr[i]);
+        }
+
+        free(fileDescriptorArr);
     }
 
     return 0;
