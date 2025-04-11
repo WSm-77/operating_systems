@@ -11,7 +11,12 @@
 #include <time.h>
 
 #define BUFFOR_SIZE 1024
-// #define DEBUG
+#define DEBUG 1
+
+#define PRINTF_DEBUG(...) \
+    if (DEBUG) { \
+        printf(__VA_ARGS__); \
+    }
 
 double fun(double x) {
     return 4 / (x * x + 1);
@@ -82,9 +87,7 @@ double calculate_integral(double lowerLimitOfIntegration, double upperLimitOfInt
         x_end += dx;
     }
 
-#ifdef DEBUG
-    printf("integral value: %f\n", integral);
-#endif
+    PRINTF_DEBUG("integral value: %f\n", integral);
 
     return integral;
 }
@@ -101,9 +104,7 @@ void delegate_calculations(double lowerLimitOfIntegration, double upperLimitOfIn
     if (0 == pid) {
 
         // child
-#ifdef DEBUG
-        printf("Child process\n");
-#endif
+        PRINTF_DEBUG("Child process\n");
         close(*parentReadDescriptor);
 
         double integral = calculate_integral(lowerLimitOfIntegration, upperLimitOfIntegration, dx);
@@ -120,14 +121,10 @@ void delegate_calculations(double lowerLimitOfIntegration, double upperLimitOfIn
     else {
 
         // parent
-#ifdef DEBUG
-        printf("Parent process\n");
-#endif
+        PRINTF_DEBUG("Parent process\n");
 
         close(*childWriteDescriptor);
     }
-
-    // return integral;
 }
 
 int main(int argc, char** argv) {
@@ -175,9 +172,7 @@ int main(int argc, char** argv) {
             double currProcessLowerLimit = lowerLimitOfIntegration + process * intervalSizePerProcess;
             double currProcessUpperLimit = currProcessLowerLimit + intervalSizePerProcess;
 
-#ifdef DEBUG
-            printf("\nProcess %d: lower limit: %f, upper limit: %f\n\n", process, currProcessLowerLimit, currProcessUpperLimit);
-#endif
+            PRINTF_DEBUG("\nProcess %d: lower limit: %f, upper limit: %f\n\n", process, currProcessLowerLimit, currProcessUpperLimit);
 
             delegate_calculations(currProcessLowerLimit, currProcessUpperLimit, intervalSize, fileDescriptorArr[process]);
         }
