@@ -8,11 +8,32 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <time.h>
 
 #define BUFFOR_SIZE 1024
+// #define DEBUG
 
 double fun(double x) {
     return 4 / (x * x + 1);
+}
+
+bool convertToDobule(char* valueStr, double* value) {
+    char* endptr = NULL;
+
+    *value = strtod(valueStr, &endptr);
+
+    if (*endptr != '\0') {
+        printf("%s is not a double number!!!\n", valueStr);
+
+        return false;
+    }
+    else if (ERANGE == errno) {
+        printf("Size of double variable exceeded!!!\n");
+
+        return false;
+    }
+
+    return true;
 }
 
 bool parseArgs(char** argv, double* intervalSize, long* maxProcessesCount) {
@@ -52,6 +73,80 @@ bool parseArgs(char** argv, double* intervalSize, long* maxProcessesCount) {
     return true;
 }
 
+double calculate_integral(double lowerLimitOfIntegration, double upperLimitOfIntegration, double dx) {
+    double integral = 0.0;
+    double x_end = lowerLimitOfIntegration + dx;
+
+    while (x_end <= upperLimitOfIntegration) {
+        integral += dx * fun(x_end);
+        x_end += dx;
+    }
+
+#ifdef DEBUG
+    printf("integral value: %f\n", integral);
+#endif
+
+    return integral;
+}
+
+double delegate_calculations(double lowerLimitOfIntegration, double upperLimitOfIntegration, double dx) {
+    int fdChildToParent[2];
+    int* parentReadDescriptor = &fdChildToParent[0];
+    int* childWriteDescriptor = &fdChildToParent[1];
+
+    pipe(fdChildToParent);
+
+    pid_t pid = fork();
+
+    char buffor[BUFFOR_SIZE];
+    buffor[0] = '\0';
+
+    double integral = 0.0;
+
+    if (0 == pid) {
+
+        // child
+#ifdef DEBUG
+        printf("Child process\n");
+#endif
+        close(*parentReadDescriptor);
+
+        double integral = calculate_integral(lowerLimitOfIntegration, upperLimitOfIntegration, dx);
+        int bytesPrinted = sprintf(buffor, "%f", integral);
+        buffor[bytesPrinted] = '\0';
+
+        write(*childWriteDescriptor, buffor, bytesPrinted + 1);
+
+        close(*childWriteDescriptor);
+
+        // kill child process
+        exit(0);
+    } else {
+
+        // parent
+#ifdef DEBUG
+        printf("Parent process\n");
+#endif
+        waitpid(pid, NULL, 0);
+
+
+        close(*childWriteDescriptor);
+
+        read(*parentReadDescriptor, &buffor, BUFFOR_SIZE);
+
+#ifdef DEBUG
+        printf("Parent buff content: %s\n", buffor);
+#endif
+        if ( ! convertToDobule(buffor, &integral)) {
+            integral = 0.0;
+        }
+
+        close(*parentReadDescriptor);
+    }
+
+    return integral;
+}
+
 int main(int argc, char** argv) {
     if (3 != argc) {
         printf("Incorrect number of arguments: %d!!!\n", argc);
@@ -72,58 +167,38 @@ int main(int argc, char** argv) {
     int lowerLimitOfIntegration = 0;
     int upperLimitOfIntegration = 1;
 
-    int fd1[2];
-    int* childReadDescriptor = &fd1[0];
-    int* parentWriteDescriptor = &fd1[1];
+    for (int processesCount = 1; processesCount <= maxProcessesCount; processesCount++) {
+        printf("\n######################\n");
+        printf("Processes count: %d\n", processesCount);
+        printf("######################\n\n");
 
-    int fd2[2];
-    int* parentReadDescriptor = &fd2[0];
-    int* childWriteDescriptor = &fd2[1];
+        double integralVal = 0.0;
+        double intervalSizePerProcess = (upperLimitOfIntegration - lowerLimitOfIntegration) / (double) processesCount;
 
-    pipe(fd1);
-    pipe(fd2);
+        struct timespec startTime;
+        struct timespec endTime;
 
-    write(*parentWriteDescriptor, "ala ma kota", 12);
+        clock_gettime(CLOCK_MONOTONIC, &startTime);
 
-    pid_t pid = fork();
+        for (int process = 0; process < processesCount; process++) {
+            double currProcessLowerLimit = lowerLimitOfIntegration + process * intervalSizePerProcess;
+            double currProcessUpperLimit = currProcessLowerLimit + intervalSizePerProcess;
 
-    char buffor[BUFFOR_SIZE];
-    buffor[0] = '\0';
+#ifdef DEBUG
+            printf("\nProcess %d: lower limit: %f, upper limit: %f\n\n", process, currProcessLowerLimit, currProcessUpperLimit);
+#endif
 
-    if (0 == pid) {
+            integralVal += delegate_calculations(currProcessLowerLimit, currProcessUpperLimit, intervalSize);
+        }
 
-        // child
+        clock_gettime(CLOCK_MONOTONIC, &endTime);
 
-        printf("Child process\n");
+        double executionTime = (endTime.tv_sec - startTime.tv_sec) * 1e9;
+        executionTime = (executionTime + (endTime.tv_nsec - startTime.tv_nsec)) * 1e-9;
 
-        close(*parentReadDescriptor);
-        close(*parentWriteDescriptor);
+        printf("Execution time: %f seconds\n", executionTime);
 
-        ssize_t readSize = read(*childReadDescriptor, &buffor, BUFFOR_SIZE);
-
-        printf("Child buff content: %s\n", buffor);
-
-        write(*childWriteDescriptor, "adam ma emu", 12);
-
-        close(*childReadDescriptor);
-        close(*childWriteDescriptor);
-    } else {
-
-        // parent
-
-        waitpid(pid, NULL, 0);
-
-        printf("Parent process\n");
-
-        close(*childWriteDescriptor);
-        close(*childReadDescriptor);
-
-        read(*parentReadDescriptor, &buffor, BUFFOR_SIZE);
-
-        printf("Parent buff content: %s\n", buffor);
-
-        close(*parentReadDescriptor);
-        close(*parentWriteDescriptor);
+        printf("integral value: %f\n", integralVal);
     }
 
     return 0;
