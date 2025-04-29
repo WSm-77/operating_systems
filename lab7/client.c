@@ -19,13 +19,9 @@ mqd_t serverQueue;
 void initClient();
 void stopClient();
 
-// void getClientQueuePath(char* clientQueuePath) {
-//     snprintf(clientQueuePath, CLIENT_QUEUE_PATH_NAME_MAX_SIZE, CLIENT_QUEUE_PATH_TEMPLATE, getpid());
-// }
-
 void initClient() {
     char clientQueuePath[CLIENT_QUEUE_PATH_NAME_MAX_SIZE];
-    getClientQueuePath(clientQueuePath);
+    getClientQueuePath(clientQueuePath, getpid());
 
     struct mq_attr queueAttr = {
         .mq_flags = 0,
@@ -52,7 +48,7 @@ void stopClient() {
     printf("Stopping client...\n");
 
     char clientQueuePath[CLIENT_QUEUE_PATH_NAME_MAX_SIZE];
-    getClientQueuePath(clientQueuePath);
+    getClientQueuePath(clientQueuePath, getpid());
     mq_unlink(clientQueuePath);
 
     // close message queue
@@ -63,7 +59,7 @@ void stopClient() {
 
 int main(int argc, char** argv) {
     char clientQueuePath[CLIENT_QUEUE_PATH_NAME_MAX_SIZE];
-    getClientQueuePath(clientQueuePath);
+    getClientQueuePath(clientQueuePath, getpid());
     // snprintf(clientQueuePath, CLIENT_QUEUE_PATH_NAME_MAX_SIZE, CLIENT_QUEUE_PATH_TEMPLATE, getpid());
 
     struct mq_attr queueAttr = {
@@ -94,6 +90,10 @@ int main(int argc, char** argv) {
 
     char message[MSGSIZE];
     mq_receive(clientQueue, message, MSGSIZE, NULL);
+
+    int clientId = atoi(message);
+
+    printf("clienID: %d\n", clientId);
 
     // pid_t childPid = fork();
 

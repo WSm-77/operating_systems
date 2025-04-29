@@ -17,6 +17,6 @@
 #define MSGSIZE 1024
 #define CLIENT_QUEUE_PATH_NAME_MAX_SIZE 100
 
-void getClientQueuePath(char* clientQueuePath) {
-    snprintf(clientQueuePath, CLIENT_QUEUE_PATH_NAME_MAX_SIZE, CLIENT_QUEUE_PATH_TEMPLATE, getpid());
+void getClientQueuePath(char* clientQueuePath, pid_t pid) {
+    snprintf(clientQueuePath, CLIENT_QUEUE_PATH_NAME_MAX_SIZE, CLIENT_QUEUE_PATH_TEMPLATE, pid);
 }

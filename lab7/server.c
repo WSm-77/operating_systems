@@ -18,10 +18,12 @@ mqd_t serverQueue;
 
 int clientsCnt = 0;
 mqd_t clientsQueues[MAX_CLIENTS];
+char clientQueuesPaths[MAX_CLIENTS][CLIENT_QUEUE_PATH_NAME_MAX_SIZE];
 
 void initServer();
 void stopServer();
 void handleMessage(char* message);
+bool isInitMessage(char* messageBody);
 
 void initServer() {
     struct mq_attr queueAttr;
@@ -59,17 +61,45 @@ void stopServer() {
 
 void handleMessage(char* message) {
     int clientId;
-    // char clientId[MSGSIZE];
     char messageBody[MSGSIZE];
-
-    printf("%s\n", message);
 
     // extract client ID and message body
     sscanf(message, "%d#%s", &clientId, messageBody);
-    // sscanf(message, "%d#%s", clientId, messageBody);
 
     printf("clientID: %d\n", clientId);
     printf("message body: %s\n", messageBody);
+
+    if (isInitMessage(messageBody)) {
+        if (clientsCnt >= MAX_CLIENTS) {
+            printf("Max number of clients reached!!!\n");
+            printf("Can not register new client!!!\n");
+
+            return;
+        }
+
+        int newClientID = clientsCnt;
+        clientsCnt++;
+
+        char* newClientQueuePath = clientQueuesPaths[newClientID];
+        getClientQueuePath(newClientQueuePath, clientId);
+
+        clientsQueues[newClientID] = mq_open(newClientQueuePath, O_WRONLY);
+
+        if (clientsQueues[newClientID] == -1) {
+            printf("Couldn't create message queue for client: %d\n", newClientID);
+            exit(1);
+        }
+
+        char toSendMessage[MSGSIZE];
+        int toSendMessageLen = snprintf(toSendMessage, MSGSIZE, "%d", newClientID);
+        toSendMessage[toSendMessageLen] = '\0';
+
+        mq_send(clientsQueues[newClientID], toSendMessage, MSGSIZE, 1);
+    }
+}
+
+bool isInitMessage(char* messageBody) {
+    return strcmp("INIT", messageBody) == 0;
 }
 
 int main(int argc, char** argv) {
