@@ -33,9 +33,6 @@ void initServer() {
 
     serverQueue = mq_open(SERVER_QUEUE_PATH, O_RDWR | O_CREAT, S_IRWXU, &queueAttr);
 
-    // serverQueue = mq_open(SERVER_QUEUE_PATH, O_CREAT | O_RDWR, 0644, &queueAttr);
-    // serverQueue = mq_open(SERVER_QUEUE_PATH, O_CREAT | O_RDWR, 0644, NULL);
-
     if (serverQueue == -1) {
         perror("Couldn't open queue!!!\n");
         mq_unlink(SERVER_QUEUE_PATH);
@@ -96,12 +93,17 @@ void handleMessage(char* message) {
 
         mq_send(clientsQueues[newClientID], toSendMessage, MSGSIZE, 1);
     } else {
+        char toSendMessage[MSGSIZE];
+
+        int toSendMessageLen = snprintf(toSendMessage, MSGSIZE, "user%d: %s", clientId, messageBody);
+        toSendMessage[toSendMessageLen] = '\0';
+
         for (int reciverId = 0; reciverId < MAX_CLIENTS; reciverId++) {
             if (reciverId == -1 || reciverId == clientId) {
                 continue;
             }
 
-            mq_send(clientsQueues[reciverId], messageBody, strlen(messageBody) + 1, 1);
+            mq_send(clientsQueues[reciverId], toSendMessage, toSendMessageLen + 1, 1);
         }
     }
 }

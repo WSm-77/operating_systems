@@ -59,10 +59,44 @@ void stopClient() {
     exit(0);
 }
 
+void receiveMessages() {
+    char message[MSGSIZE];
+
+    while (true)
+    {
+        mq_receive(clientQueue, message, MSGSIZE, NULL);
+        printf("%s\n", message);
+    }
+}
+
+void sendMessages(int clientId) {
+    while (true) {
+        char *userMessage = NULL;
+        size_t len = 0;
+        ssize_t read;
+
+        read = getline(&userMessage, &len, stdin);
+
+        if (read != -1) {
+            char toSendMessage[MSGSIZE];
+
+            int toSendMessageLen = snprintf(toSendMessage, MSGSIZE, "%d#%s", clientId, userMessage);
+            toSendMessage[toSendMessageLen] = '\0';
+
+            mq_send(serverQueue, toSendMessage, toSendMessageLen + 1, 1);
+        } else {
+            printf("Error reading input\n");
+        }
+
+        free(userMessage);
+    }
+}
+
 int main(int argc, char** argv) {
+    // initialize communication
+
     char clientQueuePath[CLIENT_QUEUE_PATH_NAME_MAX_SIZE];
     getClientQueuePath(clientQueuePath, getpid());
-    // snprintf(clientQueuePath, CLIENT_QUEUE_PATH_NAME_MAX_SIZE, CLIENT_QUEUE_PATH_TEMPLATE, getpid());
 
     struct mq_attr queueAttr = {
         .mq_flags = 0,
@@ -82,12 +116,6 @@ int main(int argc, char** argv) {
     int initMessageLen = snprintf(initMessage, MSGSIZE, INIT_MESSAGE_TEMPLATE, getpid());
     initMessage[initMessageLen] = '\0';
 
-    // printf("%d\n", initMessageLen);
-
-    // printf("%s\n", initMessage);
-
-    // printf("%s\n", clientQueuePath);
-
     mq_send(serverQueue, initMessage, initMessageLen + 1, 1);
 
     char message[MSGSIZE];
@@ -95,43 +123,16 @@ int main(int argc, char** argv) {
 
     int clientId = atoi(message);
 
-    printf("clienID: %d\n", clientId);
+    // start chat
 
     pid_t childPid = fork();
 
-    // char message[MSGSIZE];
-
     if (childPid == 0) {
-        while (true)
-        {
-            mq_receive(clientQueue, message, MSGSIZE, NULL);
-            printf("%s\n", message);
-        }
-
+        // create receiver in subprocess
+        receiveMessages();
     } else {
-        while (true) {
-            char *userMessage = NULL;
-            size_t len = 0;
-            ssize_t read;
-
-            printf("Enter a line: ");
-            read = getline(&userMessage, &len, stdin);
-
-            if (read != -1) {
-                char toSendMessage[MSGSIZE];
-                printf("You entered: %s", userMessage);
-
-                int toSendMessageLen = snprintf(toSendMessage, MSGSIZE, "%d#%s", clientId, userMessage);
-                toSendMessage[toSendMessageLen] = '\0';
-                printf("To send: %s\n", toSendMessage);
-
-                mq_send(serverQueue, toSendMessage, toSendMessageLen + 1, 1);
-            } else {
-                printf("Error reading input\n");
-            }
-
-            free(userMessage);
-        }
+        // sender
+        sendMessages(clientId);
     }
 
     stopClient();
