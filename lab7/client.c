@@ -1,8 +1,10 @@
 #define _POSIX_C_SOURCE 199309L
+#define _GNU_SOURCE
 
 // global imports
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <mqueue.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -95,38 +97,42 @@ int main(int argc, char** argv) {
 
     printf("clienID: %d\n", clientId);
 
-    // pid_t childPid = fork();
+    pid_t childPid = fork();
 
     // char message[MSGSIZE];
 
-    // if (childPid == 0) {
-    //     while (true)
-    //     {
-    //         mq_receive(clientQueue, message, MSGSIZE, NULL);
-    //         printf("%s", message);
-    //     }
+    if (childPid == 0) {
+        while (true)
+        {
+            mq_receive(clientQueue, message, MSGSIZE, NULL);
+            printf("%s\n", message);
+        }
 
-    // } else {
-    //     while (true) {
-    //         char *userMessage = NULL;
-    //         size_t len = 0;
-    //         ssize_t read;
+    } else {
+        while (true) {
+            char *userMessage = NULL;
+            size_t len = 0;
+            ssize_t read;
 
-    //         printf("Enter a line: ");
-    //         read = getline(&userMessage, &len, stdin);
+            printf("Enter a line: ");
+            read = getline(&userMessage, &len, stdin);
 
-    //         if (read != -1) {
-    //             printf("You entered: %s", userMessage);
-    //             snprintf(message, MSGSIZE, "%d#%s", ... ,userMessage);
+            if (read != -1) {
+                char toSendMessage[MSGSIZE];
+                printf("You entered: %s", userMessage);
 
-    //             mq_send(serverQueue, userMessage, strlen(message), 1);
-    //         } else {
-    //             printf("Error reading input\n");
-    //         }
+                int toSendMessageLen = snprintf(toSendMessage, MSGSIZE, "%d#%s", clientId, userMessage);
+                toSendMessage[toSendMessageLen] = '\0';
+                printf("To send: %s\n", toSendMessage);
 
-    //         free(userMessage);
-    //     }
-    // }
+                mq_send(serverQueue, toSendMessage, toSendMessageLen + 1, 1);
+            } else {
+                printf("Error reading input\n");
+            }
+
+            free(userMessage);
+        }
+    }
 
     stopClient();
 

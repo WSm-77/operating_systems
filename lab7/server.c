@@ -17,7 +17,7 @@
 mqd_t serverQueue;
 
 int clientsCnt = 0;
-mqd_t clientsQueues[MAX_CLIENTS];
+mqd_t clientsQueues[MAX_CLIENTS] = {-1};
 char clientQueuesPaths[MAX_CLIENTS][CLIENT_QUEUE_PATH_NAME_MAX_SIZE];
 
 void initServer();
@@ -64,7 +64,7 @@ void handleMessage(char* message) {
     char messageBody[MSGSIZE];
 
     // extract client ID and message body
-    sscanf(message, "%d#%s", &clientId, messageBody);
+    sscanf(message, "%d#%1024[^\n]", &clientId, messageBody);
 
     printf("clientID: %d\n", clientId);
     printf("message body: %s\n", messageBody);
@@ -95,6 +95,14 @@ void handleMessage(char* message) {
         toSendMessage[toSendMessageLen] = '\0';
 
         mq_send(clientsQueues[newClientID], toSendMessage, MSGSIZE, 1);
+    } else {
+        for (int reciverId = 0; reciverId < MAX_CLIENTS; reciverId++) {
+            if (reciverId == -1 || reciverId == clientId) {
+                continue;
+            }
+
+            mq_send(clientsQueues[reciverId], messageBody, strlen(messageBody) + 1, 1);
+        }
     }
 }
 
