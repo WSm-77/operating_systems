@@ -14,17 +14,28 @@
 #define MAX_PATIENTS_CNT 3
 #define TIME_BUFFER_SIZE 9
 
+#define DEBUG 1
+
+#define PRINTF_DEBUG(...) \
+    if (DEBUG) { \
+        printf("|DEBUG PRINT|: "); \
+        printf(__VA_ARGS__); \
+    }
+
 int waitingPatientsCount = 0;
 int allPatientsCnt;
 bool visitInProgress = false;
-bool visitStarted = false;
+bool waitingForVisit = true;
+int patientsAtVisitCnt = 0;
 int patientsAtVisitId[MAX_PATIENTS_CNT];
 
 pthread_mutex_t waitingPatientsCountLock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t doctorAwakeningCondition = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t visitLock;
-pthread_cond_t visitCondition = PTHREAD_COND_INITIALIZER;
+pthread_cond_t visitStartCondition = PTHREAD_COND_INITIALIZER;
+pthread_cond_t visitEndCondition = PTHREAD_COND_INITIALIZER;
+pthread_cond_t allPatientsAtVisitCondition = PTHREAD_COND_INITIALIZER;
 
 int getRandSleepTime() {
     return rand() % 3 + 2;
@@ -87,16 +98,40 @@ void* patient(void* args) {
         }
     }
 
-    // Wait for visit to finish
+    // Wait for visit to start
     pthread_mutex_lock(&visitLock);
-    while (visitInProgress || ! visitStarted) {
-        pthread_cond_wait(&visitCondition, &visitLock);
+    while (waitingForVisit) {
+        getCurrTime(timeCharBuffer);
+        PRINTF_DEBUG("[%s] - PATEINT(%d): waiting for visit loop\n", timeCharBuffer, patientId);
+
+        pthread_cond_wait(&visitStartCondition, &visitLock);
     }
+
+    // enter visit room
+    patientsAtVisitCnt++;
+
+    getCurrTime(timeCharBuffer);
+    PRINTF_DEBUG("[%s] - PATIENT(%d): entering visit\n", timeCharBuffer, patientId);
+
+    // check if you are the last patient to enter the visit room
+    if (patientsAtVisitCnt == MAX_PATIENTS_CNT) {
+        pthread_cond_signal(&allPatientsAtVisitCondition);
+    }
+
+    pthread_mutex_unlock(&visitLock);
+
+    // Wait for visit to end
+    pthread_mutex_lock(&visitLock);
+    while (visitInProgress) {
+        pthread_cond_wait(&visitEndCondition, &visitLock);
+    }
+
     pthread_mutex_unlock(&visitLock);
 
     pthread_mutex_lock(&waitingPatientsCountLock);
+    // tell other patients to wait for the visit
+    waitingForVisit = true;
     waitingPatientsCount--;
-    // allPatientsCnt--;
     pthread_mutex_unlock(&waitingPatientsCountLock);
 
     getCurrTime(timeCharBuffer);
@@ -107,7 +142,7 @@ void* patient(void* args) {
 
 void* doctor(void* args) {
     char timeCharBuffer[TIME_BUFFER_SIZE];
-    printf("Doctor thread started\n");
+    PRINTF_DEBUG("Doctor thread started\n");
 
     while (1) {
         pthread_mutex_lock(&visitLock);
@@ -115,10 +150,25 @@ void* doctor(void* args) {
             pthread_cond_wait(&doctorAwakeningCondition, &visitLock);
         }
 
-        visitStarted = true;
-
         getCurrTime(timeCharBuffer);
         printf("[%s] - DOCTOR: I'm waking up\n", timeCharBuffer);
+
+        // inform patients about visit
+        waitingForVisit = false;
+
+        pthread_cond_broadcast(&visitStartCondition);
+
+        pthread_mutex_unlock(&visitLock);
+
+        // wait for all patients to enter visit room
+        pthread_mutex_lock(&visitLock);
+        while (patientsAtVisitCnt < MAX_PATIENTS_CNT) {
+            pthread_cond_wait(&allPatientsAtVisitCondition, &visitLock);
+        }
+        pthread_mutex_unlock(&visitLock);
+
+        // start visit
+        pthread_mutex_lock(&visitLock);
 
         getCurrTime(timeCharBuffer);
         printf("[%s] - DOCTOR: Consulting patients %d, %d, %d\n", timeCharBuffer, patientsAtVisitId[0], patientsAtVisitId[1], patientsAtVisitId[2]);
@@ -126,12 +176,11 @@ void* doctor(void* args) {
         sleep(rand() % 2 + 2);
 
         visitInProgress = false;
-        visitStarted = false;
+        patientsAtVisitCnt = 0;
 
-        pthread_cond_broadcast(&visitCondition);
+        pthread_cond_broadcast(&visitEndCondition);
 
         pthread_mutex_unlock(&visitLock);
-
 
         getCurrTime(timeCharBuffer);
         printf("[%s] - DOCTOR: I'm falling asleep\n", timeCharBuffer);
@@ -139,7 +188,7 @@ void* doctor(void* args) {
         pthread_mutex_lock(&waitingPatientsCountLock);
 
         allPatientsCnt -= MAX_PATIENTS_CNT;
-        printf("allPatientsCnt: %d\n", allPatientsCnt);
+        PRINTF_DEBUG("allPatientsCnt: %d\n", allPatientsCnt);
 
         if (allPatientsCnt == 0) {
             pthread_mutex_unlock(&waitingPatientsCountLock);
@@ -171,10 +220,6 @@ int main(int argc, char** argv) {
 
     pthread_mutexattr_t visitLockAttr;
 
-    // pthread_mutexattr_init(&visitLockAttr);
-    // pthread_mutexattr_settype(&visitLockAttr, PTHREAD_MUTEX_RECURSIVE);
-    // pthread_mutex_init(&visitLock, &visitLockAttr);
-
     pthread_t* patientThreads = malloc(sizeof(pthread_t) * allPatientsCnt);
     int* patientArgs = malloc(sizeof(int) * allPatientsCnt);
 
@@ -192,10 +237,14 @@ int main(int argc, char** argv) {
         pthread_join(patientThreads[patientId], NULL);
     }
 
+    PRINTF_DEBUG("Finished job -> destroing locks and conditions...\n");
+
     pthread_mutex_destroy(&waitingPatientsCountLock);
     pthread_cond_destroy(&doctorAwakeningCondition);
     pthread_mutex_destroy(&visitLock);
-    pthread_cond_destroy(&visitCondition);
+    pthread_cond_destroy(&visitStartCondition);
+    pthread_cond_destroy(&visitEndCondition);
+    pthread_cond_destroy(&allPatientsAtVisitCondition);
 
     free(patientThreads);
     free(patientArgs);
