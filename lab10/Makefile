@@ -1,5 +1,5 @@
 CC=gcc
-CFLGAS=-c -g
+CFLGAS=-c -g -pthread
 
 all: hospital
 
