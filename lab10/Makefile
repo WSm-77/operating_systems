@@ -13,6 +13,6 @@ clean:
 	rm *.o hospital
 
 test: all
-	./hospital 2 3
+	./hospital 9 3
 
 .PHONY: all clean hospital test

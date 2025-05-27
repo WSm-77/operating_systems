@@ -16,7 +16,7 @@
 #define LOW_MEDICINE_CNT 3
 #define TIME_BUFFER_SIZE 9
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define INSTANT_PRINTF(...) \
     printf(__VA_ARGS__); \
@@ -38,13 +38,10 @@ int patientsAtVisitId[MAX_PATIENTS_CNT];
 int medicinesCnt = FIRST_AID_KIT_CAPACITY;
 
 int exitedThreadsCnt = 0;
-// pthread_mutex_t threadsLock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t doctorAwakeningCondition = PTHREAD_COND_INITIALIZER;
 
-// pthread_mutex_t visitLock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t visitStartCondition = PTHREAD_COND_INITIALIZER;
 pthread_cond_t visitEndCondition = PTHREAD_COND_INITIALIZER;
 pthread_cond_t allPatientsAtVisitCondition = PTHREAD_COND_INITIALIZER;
@@ -52,7 +49,6 @@ pthread_cond_t allPatientsAtVisitCondition = PTHREAD_COND_INITIALIZER;
 volatile bool deliveringMedicine = false;
 
 pthread_cond_t lowMedicinesCntCondition = PTHREAD_COND_INITIALIZER;
-pthread_cond_t medicineDeliveryStartCondition = PTHREAD_COND_INITIALIZER;
 pthread_cond_t medicineDeliveryEndCondition = PTHREAD_COND_INITIALIZER;
 
 bool doctorExited = false;
@@ -181,8 +177,6 @@ void pharmacist_deliver_medicine(int pharmacistId) {
 
     getCurrTime(timeCharBuffer);
     INSTANT_PRINTF("[%s] - PHARMACIST(%d): I've completed delivery\n", timeCharBuffer, pharmacistId);
-
-    // pthread_mutex_unlock(&visitLock);
 }
 
 void* pharmacist(void* args) {
@@ -192,23 +186,11 @@ void* pharmacist(void* args) {
     srand(pharmacistId);
 
     int randSleepTime = rand() % 11 + 5;
-    // int randSleepTime = rand() % 3 + 1;
 
     getCurrTime(timeCharBuffer);
     INSTANT_PRINTF("[%s] - PHARMACIST(%d): Going to the hospital, will be in %d [s]\n", timeCharBuffer, pharmacistId, randSleepTime);
 
     sleep(randSleepTime);
-
-    // pthread_mutex_lock(&mutex);
-
-    // while (deliveringMedicine && !doctorExited) {
-    //     getCurrTime(timeCharBuffer);
-    //     PRINTF_DEBUG("[%s] - PHARMACIST(%d): For other pharmacist to end delivery\n", timeCharBuffer, pharmacistId);
-
-    //     pthread_cond_wait(&lowMedicinesCntCondition, &mutex);
-    // }
-
-    // pthread_mutex_unlock(&mutex);
 
     pthread_mutex_lock(&mutex);
 
@@ -266,9 +248,6 @@ void doctor_admit_patients() {
 
     pthread_mutex_unlock(&mutex);
 
-    // getCurrTime(timeCharBuffer);
-    // INSTANT_PRINTF("[%s] - DOCTOR: I'm falling asleep\n", timeCharBuffer);
-
     pthread_mutex_lock(&mutex);
 
     getCurrTime(timeCharBuffer);
@@ -301,13 +280,11 @@ void* doctor(void* args) {
     while (1) {
         pthread_mutex_lock(&mutex);
 
-        if (MAX_PATIENTS_CNT == waitingPatientsCount && medicinesCnt >= LOW_MEDICINE_CNT) {
-            /* continue loop */
-        } else {
+        // wait only if there is not enough medicine and waiting patients otherwise admit waiting patients
+        if (MAX_PATIENTS_CNT != waitingPatientsCount || medicinesCnt < LOW_MEDICINE_CNT) {
             while (!awakeDoctor) {
                 pthread_cond_wait(&doctorAwakeningCondition, &mutex);
             }
-
         }
 
         getCurrTime(timeCharBuffer);
@@ -425,13 +402,11 @@ int main(int argc, char** argv) {
 
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&doctorAwakeningCondition);
-    // pthread_mutex_destroy(&visitLock);
     pthread_cond_destroy(&visitStartCondition);
     pthread_cond_destroy(&visitEndCondition);
     pthread_cond_destroy(&allPatientsAtVisitCondition);
 
     pthread_cond_destroy(&lowMedicinesCntCondition);
-    pthread_cond_destroy(&medicineDeliveryStartCondition);
     pthread_cond_destroy(&medicineDeliveryEndCondition);
 
     free(pharmacistThreads);
