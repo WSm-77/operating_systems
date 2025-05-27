@@ -12,7 +12,7 @@
 #include <pthread.h>
 
 #define MAX_PATIENTS_CNT 3
-#define FIRST_AID_KIT_CAPACITY 0
+#define FIRST_AID_KIT_CAPACITY 6
 #define LOW_MEDICINE_CNT 3
 #define TIME_BUFFER_SIZE 9
 
@@ -122,7 +122,7 @@ void* patient(void* args) {
     // Wait for visit to start
     while (waitingForVisit) {
         getCurrTime(timeCharBuffer);
-        PRINTF_DEBUG("[%s] - PATEINT(%d): waiting for visit to start loop\n", timeCharBuffer, patientId);
+        PRINTF_DEBUG("[%s] - PATIENT(%d): waiting for visit to start loop\n", timeCharBuffer, patientId);
 
         pthread_cond_wait(&visitStartCondition, &mutex);
     }
@@ -143,7 +143,7 @@ void* patient(void* args) {
     // Wait for visit to end
     while (visitInProgress) {
         getCurrTime(timeCharBuffer);
-        PRINTF_DEBUG("[%s] - PATEINT(%d): waiting for visit to end loop\n", timeCharBuffer, patientId);
+        PRINTF_DEBUG("[%s] - PATIENT(%d): waiting for visit to end loop\n", timeCharBuffer, patientId);
 
         pthread_cond_wait(&visitEndCondition, &mutex);
     }
@@ -191,8 +191,8 @@ void* pharmacist(void* args) {
 
     srand(pharmacistId);
 
-    // int randSleepTime = rand() % 11 + 5;
-    int randSleepTime = rand() % 3 + 1;
+    int randSleepTime = rand() % 11 + 5;
+    // int randSleepTime = rand() % 3 + 1;
 
     getCurrTime(timeCharBuffer);
     INSTANT_PRINTF("[%s] - PHARMACIST(%d): Going to the hospital, will be in %d [s]\n", timeCharBuffer, pharmacistId, randSleepTime);
@@ -300,19 +300,31 @@ void* doctor(void* args) {
 
     while (1) {
         pthread_mutex_lock(&mutex);
-        while (!awakeDoctor) {
-            pthread_cond_wait(&doctorAwakeningCondition, &mutex);
+
+        if (MAX_PATIENTS_CNT == waitingPatientsCount && medicinesCnt >= LOW_MEDICINE_CNT) {
+            /* continue loop */
+        } else {
+            while (!awakeDoctor) {
+                pthread_cond_wait(&doctorAwakeningCondition, &mutex);
+            }
+
         }
 
         getCurrTime(timeCharBuffer);
         INSTANT_PRINTF("[%s] - DOCTOR: I'm waking up\n", timeCharBuffer);
 
-        if (MAX_PATIENTS_CNT == waitingPatientsCount) {
+        PRINTF_DEBUG("[%s] - DOCTOR: Medicine count: %d, waiting patients: %d\n", timeCharBuffer, medicinesCnt, waitingPatientsCount);
+
+        if (MAX_PATIENTS_CNT == waitingPatientsCount && medicinesCnt >= LOW_MEDICINE_CNT) {
             doctor_admit_patients();
             PRINTF_DEBUG("patientsToServeCnt: %d\n", patientsToServeCnt);
-        } else {
+        } else if (medicinesCnt < LOW_MEDICINE_CNT) {
             doctor_admit_pharmacist();
+        } else {
+            PRINTF_DEBUG("Should never get here!!!");
+            exit(1);
         }
+
         pthread_mutex_unlock(&mutex);
 
         pthread_mutex_lock(&mutex);
