@@ -102,7 +102,7 @@ void removeClient(int clientId) {
 }
 
 void sendClientList(int clientSocket) {
-    char message[MAX_MSG_SIZE] = "LIST_RESPONSE:";
+    char message[MAX_MSG_SIZE] = "OK:Alive users: ";
     char temp[MAX_NAME_LEN + 2];
 
     pthread_mutex_lock(&clientsLock);
@@ -139,7 +139,7 @@ void sendClientList(int clientSocket) {
 void broadcastMessage(const char* sender, const char* message, int senderId) {
     char messageBuffer[MAX_MSG_SIZE];
 
-    snprintf(messageBuffer, sizeof(messageBuffer), "MSG_ALL:[%s] %s: %s", getCurrentTime(), sender, message);
+    snprintf(messageBuffer, sizeof(messageBuffer), "OK:[%s] %s: %s", getCurrentTime(), sender, message);
 
     pthread_mutex_lock(&clientsLock);
 
@@ -154,7 +154,7 @@ void broadcastMessage(const char* sender, const char* message, int senderId) {
 
 void sendPrivateMessage(const char* sender, const char* target, const char* message) {
     char buffer[MAX_MSG_SIZE];
-    snprintf(buffer, sizeof(buffer), "MSG_PRIVATE:[%s] %s (private): %s", getCurrentTime(), sender, message);
+    snprintf(buffer, sizeof(buffer), "OK:[%s] %s (private): %s", getCurrentTime(), sender, message);
 
     pthread_mutex_lock(&clientsLock);
 
