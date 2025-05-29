@@ -251,12 +251,13 @@ void* aliveChecker(void* arg) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        printf("Usage: %s <port>\n", argv[0]);
+    if (argc != 3) {
+        printf("Usage: %s <ip_address> <port>\n", argv[0]);
         return 1;
     }
 
-    int port = atoi(argv[1]);
+    char* serverIp = argv[1];
+    int port = atoi(argv[2]);
     struct sockaddr_in serverAddr, clientAddr;
     socklen_t clientLen = sizeof(clientAddr);
 
@@ -275,9 +276,13 @@ int main(int argc, char* argv[]) {
     // set server address
     memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;    // in this program we can also use INADDR_LOOPBACK
     serverAddr.sin_port = htons(port);
+    if (inet_pton(AF_INET, serverIp, &serverAddr.sin_addr) <= 0)
+        exitOnFailure("Invalid IP address\n");
 
+    // reuse port
+    int reuseAddress = 1;
+    setsockopt(serverSocketFd, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
     if (bind(serverSocketFd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
         exitOnFailure("Couldn't bind server socket\n");
 
